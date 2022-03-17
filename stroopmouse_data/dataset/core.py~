@@ -1,0 +1,514 @@
+import h5py
+import os
+import datetime
+import time
+import numpy as np
+
+# This script allows a user to generate a .hdf5 file with references to experimental data that will be used for
+# later analysis. The experimental data must be stored in a common repository in the format: 
+# (mouse) / (date) / ms(mouse)_(date)_block(block).hdf5 with date format yyyy-mm-dd. This code will iterate through
+# the data repository and allow the user to select data files to be included. The resulting hdf5 file is structured
+# as: [mouse][date][block]
+
+data_repo = ('/Users/smaille/University of Ottawa/BeiqueLab - Documents/'
+             'Data/Behaviour Data/Sebastien/Dual_Lickport/Mice')
+
+dataset_repo = './datasets/'
+create_edit = input('Create(c) new dataset or edit(e) existing?: ')
+
+
+def check_exp_error(mouse:str, date:str, block:str) -> bool:
+    
+    data_path = f'{data_repo}/{mouse}/{date}/ms{mouse}_{date}_block{block}.hdf5'
+    use_data = True
+
+    with h5py.File(data_path, r) as w:
+        print('ya')
+        if 'n' in w.attrs['experimental_quality']:
+            message = w.attrs['experimental_message']
+            print(f'Mouse {mouse}, {date}: {message}')
+
+            if 'n' in input('Are you sure this block should be added?(y/n): '):
+                use_data = False
+
+    return use_data
+
+class DataSet():
+    '''
+    A class to handle creation and editing of a dataset file.
+
+    Attributes:
+    -----------
+    self.hdf: h5py object
+        h5py object representing the hdf5 file for this dataset.
+
+    self.data_repo: str
+        The path to the data repository.
+
+    self.activity_log: h5py group object
+        The h5py group for the activity log in which all changes are documented.
+
+    self.mouse_list: list
+        List of all mouse names in the current dataset file.
+
+    self.all_mice: list
+        List of all mice available in the dataset repo.
+
+    self.mouse_objects: list
+        A list of mouse objects for each of the mice in the dataset file.
+    '''
+    def __init__(self, filepath, name, data_repo):
+        self.hdf = h5py.File(filepath, 'a')
+        self.data_repo = data_repo
+        self.activity_log = self.hdf_file.require_group('Activity log')
+        self.mouse_list = [i for i in list(f.keys()) if i != 'Activity log']
+        self.all_mice = sorted(os.listdir(self.data_repo))
+        self.all_mice.remove('test')
+        self.mouse_objects = []
+        
+        for ms in mouse_list:
+            self.mouse_objects.append(Mouse(ms, self.hdf[ms], self, data_repo))
+
+    def log_event(self, attr_name, comment):
+        '''Add a comment to the activity log for this dataset'''
+        self.activity_log.attrs[attr_name] = comment
+        
+    def add_mouse(self, mouse):
+        '''Add a mouse to the mouse list and mouse object list.'''
+        if mouse not in mouse_list:
+            self.mouse_list.append(mouse)
+            self.hdf.require_group(mouse)
+            self.mouse_objects.append(Mouse(mouse, self.hdf[mouse],
+                                            self, data_repo))
+
+        obj = [ms for ms in self.mouse_objects if ms.name==name][0]
+        obj.loop()
+        
+    def delete_mode(self):
+        '''Remove a mouse from the mouse list and mouse object list.'''
+        print('----------DELETE MODE----------')
+        while True:
+            mouse = input('Enter mouse number to be removed (q:quit) :')
+            
+            if mouse == 'q':
+                break
+            
+            elif mouse in self.mouse_list:
+                self.mouse_list.remove(mouse)
+                del self.hdf[mouse]
+                self.mouse_objects = [ms for ms in self.mouse_objects
+                                      if ms.name!=mouse]
+
+            else:
+                print('Not recognized.')
+
+    def loop(self):
+        '''Prompt the user to choose a mouse.'''
+        while True:
+            mouse = input('Enter mouse number (q:quit, h:help): ')
+
+            if mouse == 'q':
+                break
+
+            elif mouse == 'h':
+                print('q:quit, ls:list all mice, lsf:list mice in file, rm:delete mode')
+
+            elif mouse == 'ls':
+                print(self.all_mice)
+
+            elif mouse == 'lsf':
+                print(self.mouse_list)
+
+            elif mouse == 'rm':
+                self.delete_mode()
+
+            elif mouse in self.all_mice:
+                self.add_mouse(mouse)
+
+            else:
+                print('Not recognized.')
+    
+
+class Mouse():
+    def __init__(self, name, hdf_group, dataset, data_repo):
+        self.name = name
+        self.group = hdf_group
+        self.date_repo = f'{data_repo}/{self.name}'
+        self.all_dates = sorted(os.listdir(self.date_repo))
+        self.date_list = list(self.group.keys())
+        self.date_objects = []
+
+        for date in date_list:
+            self.date_objects.append(Date(date))
+
+    def add_date(self, date):
+        '''Add a date for this mouse to the dataset.'''
+        # Remove date first to avoid redundancy.
+        self.remove_date(date)
+        self.date_list.append(date)
+        self.group.require_group(date)
+        obj = Date(date)
+        self.date_objects.appent(obj)
+        obj.loop()
+
+    def delete_mode(self):
+        '''Remove a date for this mouse from the dataset.'''
+        print('----------DELETE MODE----------')
+        while True:
+            date = input('Enter a date (yyyy-mm-dd) to be removed (q:quit) :')
+            
+            if date == 'q':
+                break
+            
+            elif date in self.date_list:
+                self.remove_date(date)
+
+            else:
+                print('Not recognized')
+
+    def remove_date(self, date):
+        '''Remove a date from the date list, object list and dataset file.'''
+        if date in self.date_list:
+            self.date_list.remove(date)
+            del self.hdf[date]
+            self.date_objects = [dt for dt in self.date_objects
+                                 if dt.name!=date]
+
+    def list_protocols(self):
+        '''List all available dates with the protocol used on that date.'''
+
+    def range_mode(self):
+        '''Add all dates within a certain range'''
+        print('----------RANGE MODE----------')
+        start_date = input('Enter start date (yyyy-mm-dd): ')
+        end_date = input('Enter end date (yyyy-mm-dd): ')
+
+        if (start_date in self.all_dates) and (end_date in self.all_dates):
+            start_index = self.all_dates.index(start_date)
+            end_index = self.all_dates.index(end_date)
+            date_range = self.all_dates[start_index:end_index]
+
+            for date in date_range:
+                self.add_date(date)
+
+        else:
+            print('Dates not recognized.')
+        
+
+    def loop(self):
+        '''Prompt the user to choose a date.'''
+        while True:
+            date = input('Enter date yyyy-mm-dd (q:quit, h:help): ')
+
+            if date == 'q':
+                break
+
+            elif date == 'h':
+                print('q:quit, ls:list all dates, lsf:list dates in file, '
+                      'lsp:list dates with protocol, rg:range mode, '
+                      'rm:delete mode')
+
+            elif date == 'ls':
+                print(self.all_dates)
+
+            elif date == 'lsf':
+                print(self.date_list)
+
+            elif date == 'lsp':
+                self.list_protocols()
+
+            elif date == 'rg':
+                self.range_mode()
+
+            elif date == 'rm':
+                self.delete_mode()
+
+            elif date in self.all_dates:
+                self.add_mouse()
+
+            else:
+                print('Not recognized.')
+
+            
+
+class Date():
+    __init__(self):
+
+class Block():
+    _init__(self):
+
+def add_blocks(mouse, date, dset_file, date_counter=0):
+
+    date_path = f'{data_repo}/{mouse}/{date}/'
+    experiments = sorted(os.listdir(date_path))
+    blocks =  [name[-6] for name in experiments]
+    log = dset_file.require_group('Activity log')
+    # Data file ends in ...block1.hdf5, so position -6 is the block number
+    selected_blocks = []
+    
+    if len(blocks) == 1:
+        selected_blocks.append(blocks[0])
+
+    else:
+        choose_blocks = True
+
+        # Gets the user to input block numbers to be added.
+        while choose_blocks == True:
+            block = input('Enter block number (q:quit, ls:list blocks): ')
+            
+            if block == 'q':
+                choose_blocks = False
+                
+            elif block == 'ls':
+                # List; lists all available experimental blocks
+                print(blocks)
+                
+            elif block in blocks:
+
+                # Checks whether the experimenter warned against using this data
+                with h5py.File(
+                        f'{date_path}/ms{mouse}_{date}_block{block}.hdf5',
+                        'r') as w:
+                    print('ya')
+                    if 'n' in w.attrs['experimental_quality']:
+                        message = w.attrs['experimental_message']
+                        print(f'Mouse {mouse}, {date}: {message}')
+
+                        use_data = input(
+                            'Are you sure this block should be added?(y/n): ')
+
+                        if 'y' in use_data:
+                            selected_blocks.append(block)
+
+                    else:
+                        selected_blocks.append(block)
+                
+            else:
+                print('Block number not recognized')
+
+    dt = dset_file[mouse][date]
+    now = datetime.datetime.now()
+    datestring = now.strftime('%c')
+
+    if 'blocks' in dt.keys():
+        # Checks whether there was already data for the given date.
+        log.attrs[f'{datestring}'] = (
+            f'Deleted all previous blocks for ms{mouse}/{date}.')
+        del dt['blocks']
+
+    block_counter = 0
+    # block_counter will ensure that attributes aren't overwritten due to
+    # having the same name.
+                
+    for block in selected_blocks:
+        print(f'Added ms{mouse}_{date}_block{block}')
+        log.attrs[f'{datestring} (date_counter)({block_counter})'] = (
+            f'Added ms{mouse}_{date}_block{block}')
+        block_counter += 1
+        
+    dt.create_dataset('blocks', data = np.array(selected_blocks, dtype='S1'), dtype='S1')
+
+
+# Gets the user to choose one of the existing dataset files in dataset_repo.
+if create_edit == 'e':
+    file_search = True
+    
+    while file_search == True:
+        fname = input('Enter dataset name (ls:list): ')
+        
+        if fname == 'ls':
+            print(sorted(os.listdir(dataset_repo)))
+            
+        elif f'{fname}.hdf5' in os.listdir(dataset_repo):
+            print(f'Opening {fname}.hdf5')
+            description = input('Describe this edit: ')
+            f = h5py.File(f'{dataset_repo}{fname}.hdf5', 'a')
+            file_search = False
+            
+        else:
+            print('Dataset file not found.')
+
+# Gets the user to create (and describe) a new dataset file.
+elif create_edit == 'c':
+    fname = input('Enter new dataset name: ')
+    print(f'Creating {fname}.hdf5')
+    description = input('Describe this file: ')
+    f = h5py.File(f'{dataset_repo}{fname}.hdf5', 'a')
+
+log = f.require_group('Activity log')
+date = datetime.datetime.now()
+log.attrs[date.strftime('%c')] = 'Comment: ' + description 
+mice = sorted(os.listdir(data_repo))
+mice.remove('test')
+choose_mice = True
+
+# Gets the user to choose a mouse from all available mice in data_repo.
+while choose_mice == True:
+    mouse = input('Enter mouse number (q:quit, h:help): ')
+    mice_file = [i for i in list(f.keys()) if i != 'Activity log']
+
+    if mouse == 'h':
+        # Help; will list all available commands.
+        print('q:quit, ls:list all mice, lsf:list mice in file, rm:delete mode')
+
+    elif mouse == 'q':
+        # Quit; will exit mouse selection, effectively exiting the program.
+        choose_mice = False
+
+    elif mouse == 'ls':
+        # Will list all mice in data_repo.
+        print(mice)
+
+    elif mouse == 'lsf':
+        # Will list all mice in the current dataset file.
+        print(mice_file)
+
+    elif mouse == 'rm':
+        del_mode = True
+
+        # Gets the user to choose a mouse to remove from the dataset.
+        while del_mode == True:
+            del_mouse = input('*DELETE MODE* Enter mouse to delete '
+                              '(q:quit, lsf:list mice in file):')
+
+            if del_mouse == 'lsf':
+                print(mice_file)
+
+            elif del_mouse == 'q':
+                del_mode = False
+
+            elif del_mouse in mice_file:
+                del f[del_mouse]
+                print(f'Deleted mouse {del_mouse}')
+                now = datetime.datetime.now()
+                log.attrs[now.strftime('%c')] = f'Deleted ms{del_mouse}'
+                mice_file = [i for i in list(f.keys()) if i != 'Activity log']
+                
+    elif mouse in mice:
+        # Will create an hdf5 group for the selected mouse and begin
+        # the process of selecting dates.
+        ms = f.require_group(mouse)
+        dates = sorted(os.listdir(f'{data_repo}/{mouse}/'))
+        choose_dates = True
+        
+        while choose_dates == True:
+            date = input('Enter date  yyyy-mm-dd (q:quit, h:help): ')
+
+            if date == 'h':
+                print('q:quit, ls:list all dates, lsf:list dates in file, '
+                      'lsp:list dates w/ protocol, lsr:list dates w/rule, '
+                      'rm:delete mode, rg:range mode')
+
+            elif date == 'q':
+                # Quit; will exit date selection process and return to
+                # mouse selection
+                choose_dates= False
+
+            elif date == 'ls':
+                # Lists all dates for which experimental data is available
+                # for this mouse
+                print(dates)
+
+            elif date == 'lsf':
+                # Lists all the dates for this mouse that are in the current
+                # dataset file.
+                print(list(ms.keys()))
+
+            elif date == 'lsp':
+                # Lists all available dates for this mouse, along with the name
+                # of the protocol that was used, if it was stored.
+                for exp in dates:
+                    last_exp = sorted(
+                        os.listdir(f'{data_repo}/{mouse}/{exp}/'))[-1]
+
+                    with h5py.File(
+                            f'{data_repo}/{mouse}/{exp}/{last_exp}', 'r') as w:
+
+                        if 'protocol_name' in w.attrs:
+                            protocol_name = w.attrs['protocol_name']
+                            print(f'{exp}: {protocol_name}')
+
+                        else:
+                            print(exp)
+
+            elif date == 'lsr':
+                # Lists all available dates for this mouse, along with the
+                # Rule in effect at the start of the experiment.
+                for exp in dates:
+                    last_exp = sorted(
+                        os.listdir(f'{data_repo}/{mouse}/{exp}/'))[-1]
+
+                    with h5py.File(
+                            f'{data_repo}/{mouse}/{exp}/{last_exp}', 'r') as w:
+
+                        if 'rule' in w.keys():
+                            freq = int(w['rule']['freq_rule'][0])
+                            port = int(w['rule']['left_port'][0])
+                            print(f'{exp}: [{freq}, {port}]')
+
+                        else:
+                            print(exp)
+            
+
+            elif date == 'rm':
+                # Remove; gets the user to input dates for which all
+                # experimental data will be deleted from the dataset file.
+                dates_file = list(ms.keys())
+                del_mode = True
+                
+                while del_mode == True:
+                    del_date = input('*DELETE MODE* Enter date to delete '
+                                     '(q:quit, lsf:list dates in file):')
+                    
+                    if del_date == 'lsf':
+                        print(dates_file)
+                        
+                    elif del_date == 'q':
+                        del_mode = False
+                        
+                    elif del_date in dates_file:
+                        del ms[del_date]
+                        print(f'Deleted ms{mouse}_{del_date}')
+                        now = datetime.datetime.now() #get time and date (to store in log)
+                        datestring = now.strftime('%c') #convert to string
+                        log.attrs[datestring] = f'Deleted ms{mouse}_{del_date}'
+                        dates_file = list(ms.keys()) #remake the list
+
+            elif date == 'rg':
+                # Range; gets the user to input a range of dates. All
+                # data collected between these dates (inclusively) will be
+                # added.
+                print('*RANGE MODE*')
+                start_date = input('Enter start date: ')
+                end_date = input('Enter end date: ')
+
+                if start_date not in dates or end_date not in dates:
+                    print('Dates not recognized.')
+                    break
+
+                else:
+                    start_index = int(np.where(np.array(dates) == start_date)[0])
+                    end_index = int(np.where(np.array(dates) == end_date)[0] + 1)
+                    # +1 added to end_index so that it includes the last date.
+                    selected_dates = dates[start_index : end_index]
+                    date_counter = 0
+                    # attribute_counter will ensure that attributes
+                    # aren't overwritten due to having the same name
+
+                    for date in selected_dates:
+                         dt = ms.require_group(date)
+                         add_blocks(mouse, date, f, date_counter)
+                         date_counter += 1
+                        
+            elif date in dates:
+                # Adds blocks from this date to the dataset.
+                dt = ms.require_group(date) #create hdf subgroup for this date
+                add_blocks(mouse, date, f)
+
+            else:
+                # If the date doesn't correspond to a valid date or command
+               print('Date not recognized')
+
+    else:
+        # If the mouse number doesn't correspond to a mouse or valid command
+        print('Mouse number not recognized')
