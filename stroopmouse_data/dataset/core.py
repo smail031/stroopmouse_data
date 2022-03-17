@@ -262,7 +262,7 @@ class Mouse():
 
         if (start_date in self.all_dates) and (end_date in self.all_dates):
             start_index = self.all_dates.index(start_date)
-            end_index = self.all_dates.index(end_date)
+            end_index = self.all_dates.index(end_date)+1
             date_range = self.all_dates[start_index:end_index]
 
             for date in date_range:
