@@ -106,7 +106,7 @@ class Mouse():
         return experiments
 
     def get_data(self, hdf_data_path: str, vector: bool = False,
-                 attr: bool = False) -> np.ndarray:
+                 attr: bool = False, string: bool = False) -> np.ndarray:
         '''
         Extract specified data from all experiments for this mouse. 
 
@@ -126,10 +126,14 @@ class Mouse():
         data = np.empty(len(self.experiments), dtype=np.ndarray)
         
         for exp in range(len(self.experiments)):
+            
             if attr:
                 data[exp] = self.experiments[exp].data.attrs[hdf_data_path]
             else:
                 data[exp] = np.array(self.experiments[exp].data[hdf_data_path])
+
+            if string:
+                data[exp] = data[exp].astype(str)
             
         if vector:
             data = as_vector(data)
