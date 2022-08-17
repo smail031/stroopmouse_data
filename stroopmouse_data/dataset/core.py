@@ -3,10 +3,11 @@ import os
 from datetime import datetime
 import numpy as np
 
-#data_repo = ('/Users/smaille/University of Ottawa/BeiqueLab - Documents/'
+# data_repo = ('/Users/smaille/University of Ottawa/BeiqueLab - Documents/'
 #             'Data/Behaviour Data/Sebastien/Dual_Lickport/Mice')
-#dataset_repo = '/Users/smaille/Repositories/behavior_analysis/datasets/'
-#dataset_search(data_repo, dataset_repo)
+# dataset_repo = '/Users/smaille/Repositories/behavior_analysis/datasets/'
+# dataset_search(data_repo, dataset_repo)
+
 
 def dataset_edit(data_repo, dataset_repo):
     create_edit = input('Create(c) new dataset or edit(e) existing dataset?: ')
@@ -68,9 +69,8 @@ class DataSet():
         self.data_repo = data_repo
         self.activity_log = self.hdf.require_group('Activity log')
         self.mouse_list = [i for i in list(self.hdf.keys()) if i != 'Activity log']
-        self.all_mice = sorted(os.listdir(self.data_repo))
-        self.all_mice.remove('test')
-        self.all_mice.remove('.DS_Store')
+        self.all_mice = sorted([i for i in os.listdir(self.data_repo)
+                                if i.isnumeric()])
         self.mouse_objects = []
         self.log_count = 0
         
