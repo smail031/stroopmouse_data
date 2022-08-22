@@ -138,7 +138,7 @@ class Mouse():
         if vector:
             data = as_vector(data)
             
-        return data
+        return np.array(data)
         
    
 class DataSet():
