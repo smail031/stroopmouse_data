@@ -1,41 +1,35 @@
 import h5py
 import os
 from datetime import datetime
-import numpy as np
-
-# data_repo = ('/Users/smaille/University of Ottawa/BeiqueLab - Documents/'
-#             'Data/Behaviour Data/Sebastien/Dual_Lickport/Mice')
-# dataset_repo = '/Users/smaille/Repositories/behavior_analysis/datasets/'
-# dataset_search(data_repo, dataset_repo)
 
 
 def dataset_edit(data_repo, dataset_repo):
     create_edit = input('Create(c) new dataset or edit(e) existing dataset?: ')
 
     if create_edit == 'e':
-    
+
         while True:
             fname = input('Enter dataset name (ls:list): ')
-            
+
             if fname == 'ls':
                 print(sorted(os.listdir(dataset_repo)))
-                
+
             elif f'{fname}.hdf5' in os.listdir(dataset_repo):
                 print(f'Opening {fname}.hdf5')
                 break
-            
+
             else:
                 print('Not recognized.')
-                
+
     elif create_edit == 'c':
         fname = input('Enter new dataset name: ')
         print(f'Creating {fname}.hdf5')
-        
+
     dset_path = f'{dataset_repo}{fname}.hdf5'
     dset = DataSet(dset_path, data_repo)
     dset.choose_mouse()
 
-    
+
 class DataSet():
     '''
     A class to handle creation and editing of a dataset file.
@@ -49,7 +43,7 @@ class DataSet():
         The path to the data repository.
 
     self.activity_log: h5py group object
-        The h5py group for the activity log in which all changes are documented.
+        The h5py group for the activity log in which all changes are documented
 
     self.mouse_list: list
         List of all mouse names in the current dataset file.
@@ -59,36 +53,37 @@ class DataSet():
 
     self.mouse_objects: list
         A list of mouse objects for each of the mice in the dataset file.
-    
+
     self.log_counter: int
         Counts items added to activity log in the current session
         (to prevent overwriting previous items).
     '''
-    def __init__(self, filepath:str, data_repo:str):
+    def __init__(self, filepath: str, data_repo: str):
         self.hdf = h5py.File(filepath, 'a')
         self.data_repo = data_repo
         self.activity_log = self.hdf.require_group('Activity log')
-        self.mouse_list = [i for i in list(self.hdf.keys()) if i != 'Activity log']
+        self.mouse_list = [i for i in list(self.hdf.keys())
+                           if i != 'Activity log']
         self.all_mice = sorted([i for i in os.listdir(self.data_repo)
                                 if i.isnumeric()])
         self.mouse_objects = []
         self.log_count = 0
-        
+
         for ms in self.mouse_list:
             self.mouse_objects.append(Mouse(ms, self.hdf[ms], self, data_repo))
 
         edit_msg = input('Describe your changes: ')
         self.log_event(f'User Message: {edit_msg}')
 
-    def log_event(self, comment:str):
+    def log_event(self, comment: str):
         '''Add a comment to the activity log for this dataset'''
         now = datetime.now()
         attr_name = now.strftime('%Y-%m-%d %H:%M:%S')
         self.activity_log.attrs[f'{attr_name} ({str(self.log_count).zfill(3)})'
                                 ] = comment
-        self.log_count += 1 # Log count ensures comments aren't overwritten.
-        
-    def add_mouse(self, mouse:str):
+        self.log_count += 1  # Log count ensures comments aren't overwritten.
+
+    def add_mouse(self, mouse: str):
         '''Add a mouse to the mouse list and mouse object list.'''
         if mouse not in self.mouse_list:
             self.mouse_list.append(mouse)
@@ -97,27 +92,27 @@ class DataSet():
                                             self, self.data_repo))
             self.log_event(f'Added mouse {mouse}')
 
-        obj = [ms for ms in self.mouse_objects if ms.name==mouse][0]
+        obj = [ms for ms in self.mouse_objects if ms.name == mouse][0]
         obj.choose_dates()
-        
+
     def delete_mode(self):
         '''Remove a mouse from the mouse list and mouse object list.'''
         print('----------DELETE MODE----------')
         while True:
             mouse = input('Enter mouse number to be removed '
                           '(q:quit, lsf:list mice in file) :')
-            
+
             if mouse == 'q':
                 break
 
             elif mouse == 'lsf':
                 print(self.mouse_list)
-            
+
             elif mouse in self.mouse_list:
                 self.mouse_list.remove(mouse)
                 del self.hdf[mouse]
                 self.mouse_objects = [ms for ms in self.mouse_objects
-                                      if ms.name!=mouse]
+                                      if ms.name != mouse]
                 self.log_event(f'Removed mouse {mouse}')
 
             else:
@@ -153,7 +148,7 @@ class DataSet():
 
             else:
                 print('Not recognized.')
-    
+
 
 class Mouse():
     '''
@@ -163,7 +158,7 @@ class Mouse():
     -----------
     self.name: str
         A string containing the ID number of this mouse.
-    
+
     self.group: h5py group object
         The h5py group that corresponds to this mouse in the dataset file.
 
@@ -182,8 +177,8 @@ class Mouse():
     self.date_objects: list
         A list of Date objects corresponding to each date in date_list.
     '''
-    def __init__(self, name:str, hdf_group:object,
-                 dataset:object, data_repo:str):
+    def __init__(self, name: str, hdf_group: object,
+                 dataset: object, data_repo: str):
         self.name = name
         self.group = hdf_group
         self.dataset = dataset
@@ -199,7 +194,7 @@ class Mouse():
             self.date_objects.append(Date(date, self.group[date],
                                           block_path, self, self.dataset))
 
-    def add_date(self, date:str):
+    def add_date(self, date: str):
         '''Add a date for this mouse to the dataset.'''
         # Remove date first to avoid redundancy.
         self.remove_date(date)
@@ -216,13 +211,13 @@ class Mouse():
         while True:
             date = input('Enter a date (yyyy-mm-dd) to be removed '
                          '(q:quit, lsf:list dates in file): ')
-            
+
             if date == 'q':
                 break
 
             elif date == 'lsf':
                 print(self.date_list)
-            
+
             elif date in self.date_list:
                 self.remove_date(date)
                 self.dataset.log_event(f'Removed {date}')
@@ -231,13 +226,13 @@ class Mouse():
             else:
                 print('Not recognized')
 
-    def remove_date(self, date:str):
+    def remove_date(self, date: str):
         '''Remove a date from the date list, object list and dataset file.'''
         if date in self.date_list:
             self.date_list.remove(date)
             del self.group[date]
             self.date_objects = [dt for dt in self.date_objects
-                                 if dt.date!=date]
+                                 if dt.date != date]
 
     def list_protocols(self):
         '''List all available dates with the protocol used on that date.'''
@@ -250,7 +245,7 @@ class Mouse():
                 if 'protocol_name' in w.attrs:
                     protocol_name = w.attrs['protocol_name']
                     print(f'{date}: {protocol_name}')
-                    
+
                 else:
                     print(date)
 
@@ -270,7 +265,6 @@ class Mouse():
 
         else:
             print('Dates not recognized.')
-        
 
     def choose_dates(self):
         '''Prompts the user to choose a date.'''
@@ -306,7 +300,7 @@ class Mouse():
             else:
                 print('Not recognized.')
 
-            
+
 class Date():
     '''
     A class to handle all experiment blocks for a given mouse on a given day.
@@ -321,7 +315,7 @@ class Date():
 
     self.block_path: str
         The path to all blocks for this date.
-    
+
     self.mouse: object
         The Mouse object corresponding to this date.
 
@@ -331,8 +325,8 @@ class Date():
     self.all_blocks: list
         List of all available blocks for this date.
     '''
-    def __init__(self, date:str, hdf_group:object, block_path:str,
-                 mouse:object, dataset:object):
+    def __init__(self, date: str, hdf_group: object, block_path: str,
+                 mouse: object, dataset: object):
         self.date = date
         self.hdf_group = hdf_group
         self.block_path = block_path
@@ -341,8 +335,7 @@ class Date():
         self.all_blocks = os.listdir(block_path)
         self.all_block_numbers = [block[-6] for block in self.all_blocks]
 
-
-    def add_block(self, blocks:list):
+    def add_block(self, blocks: list):
         '''Adds the selected block to the dataset.'''
         # First remove any existing blocks.
         if 'blocks' in list(self.hdf_group.keys()):
@@ -352,17 +345,17 @@ class Date():
         block_list = []
 
         for block in blocks:
-            block_number = block[-6] # Block number is at that index of filename.
+            block_number = block[-6]  # Block number is at that index of fname.
             block_list.append(block_number)
             print(f'Added {block}')
             self.dataset.log_event(f'Added {block}')
 
         self.hdf_group['blocks'] = block_list
 
-    def check_experiment_msg(self, block:str) -> bool:
+    def check_experiment_msg(self, block: str) -> bool:
         '''
         Checks the hdf5 file to confirm whether the experimenter warned against
-        using this data (because of errors). If so, provides the user with the 
+        using this data (because of errors). If so, provides the user with the
         experimenter-generated messsage and asks whether to add the block.
 
         Returns:
@@ -370,7 +363,7 @@ class Date():
         Bool: Whether or not the block should be added to the dataset.
         '''
         with h5py.File(f'{self.block_path}/{block}', 'r') as f:
-            
+
             if 'n' in f.attrs['experimental_quality']:
                 message = f.attrs['experimental_message']
                 print(f'EXPERIMENTAL ERROR MESSAGE for {block}: {message}')
@@ -383,7 +376,7 @@ class Date():
 
             else:
                 return True
-        
+
     def choose_blocks(self):
         '''Prompts the user to select a block to add.'''
         if len(self.all_blocks) == 1:
@@ -394,7 +387,8 @@ class Date():
         else:
             blocks_to_add = []
             while True:
-                block_num = input('Enter block number (q:quit, ls:list blocks, '
+                block_num = input('Enter block number (q:quit, '
+                                  'ls:list blocks, '
                                   'lsf:list selected blocks): ')
 
                 if block_num == 'q':

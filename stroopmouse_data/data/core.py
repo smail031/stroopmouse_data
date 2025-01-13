@@ -2,9 +2,6 @@ import h5py
 import numpy as np
 import os
 
-#data_repo_path = ('/Users/smaille/University of Ottawa/BeiqueLab - Documents/'
-#                  'Data/Behaviour Data/Sebastien/Dual_Lickport/Mice/')
-#dataset_repo_path = './datasets/'
 
 class Experiment():
     '''
@@ -42,14 +39,14 @@ class Experiment():
         self.data_repo = data_repo
 
         data_path = (f'{self.mouse}/{self.date}/'
-            f'ms{self.mouse}_{self.date}_block{self.block}.hdf5')
-        full_path = data_repo + data_path
+                     f'ms{self.mouse}_{self.date}_block{self.block}.hdf5')
+        full_path = data_repo + '/' + data_path
 
         self.data = h5py.File(full_path, 'r')
         print(f'Opening mouse {self.mouse}, {self.date},'
-            f'block {self.block}')
+              f'block {self.block}')
 
-                
+
 class Mouse():
     '''
     A class to work with all experimental data for a single mouse in a
@@ -63,7 +60,7 @@ class Mouse():
     self.mouse_group: h5py group object
         Object to work with the mouse's group in the dataset file.
     self.experiments: list of obj (Experiment)
-        A list containing an instance of class Expriment for each experiment 
+        A list containing an instance of class Expriment for each experiment
         on this mouse in the dataset.
 
     Methods:
@@ -81,7 +78,7 @@ class Mouse():
         self.data_repo = data_repo
         self.date_list = list(self.mouse_group.keys())
         self.experiments = self.get_experiments(self.date_list)
-     
+
     def get_experiments(self, date_list):
         '''
         Instantiates an object of class Experiment for each experiment in
@@ -108,11 +105,11 @@ class Mouse():
     def get_data(self, hdf_data_path: str, vector: bool = False,
                  attr: bool = False, string: bool = False) -> np.ndarray:
         '''
-        Extract specified data from all experiments for this mouse. 
+        Extract specified data from all experiments for this mouse.
 
         Arguments:
         ----------
-        hdf_data_path (str): The path, in the hdf5 file, to the data 
+        hdf_data_path (str): The path, in the hdf5 file, to the data
             (ex.'sample-tone/freq')
         vector (bool, False): Indicates whether the data should be returned as
             a vector (all experiments concatenated) or not (nested 1d arrays).
@@ -124,9 +121,9 @@ class Mouse():
             either as a single 1D array or nested 1d arrays.
         '''
         data = np.empty(len(self.experiments), dtype=np.ndarray)
-        
+
         for exp in range(len(self.experiments)):
-            
+
             if attr:
                 data[exp] = self.experiments[exp].data.attrs[hdf_data_path]
             else:
@@ -134,13 +131,13 @@ class Mouse():
 
             if string:
                 data[exp] = data[exp].astype(str)
-            
+
         if vector:
             data = as_vector(data)
-            
+
         return np.array(data)
-        
-   
+
+
 class DataSet():
     '''
     A class to handle datasets containing data from several experiments from
@@ -153,7 +150,7 @@ class DataSet():
     self.mouse_list: list of str
 
     self.mouse_objects: list of obj (Mouse)
-    
+
     Methods:
     --------
     self.get_mice():
@@ -164,19 +161,18 @@ class DataSet():
     self.get_weights():
         Returns the daily weights for each mouse in mouse_objects.
     self.get_performance_experiment():
-        Returns the fraction of correct trials for each experiment for 
+        Returns the fraction of correct trials for each experiment for
         each mouse in the dataset.
     self.get_post_reversal_performance:
-        For each reversal for each mouse, returns a nested vectors for 
+        For each reversal for each mouse, returns a nested vectors for
         performance for a given number of trials post-reversal.
     '''
-    
-    
+
     def __init__(self, filename, data_repo, dataset_repo):
         '''
         '''
         print(f'Opening {filename}.hdf5')
-        self.dataset = h5py.File(f'{dataset_repo}{filename}.hdf5','r')
+        self.dataset = h5py.File(f'{dataset_repo}{filename}.hdf5', 'r')
         self.data_repo = data_repo
         self.mouse_list = [i for i in list(self.dataset.keys())
                            if i != 'Activity log']
@@ -185,8 +181,8 @@ class DataSet():
     def get_mouse_objects(self, mouse_list):
         '''
         For each mouse in mouse_list, instantiates an object of class
-        Mouse. 
-        
+        Mouse.
+
         Arguments:
         ----------
         mouse_list: list(str)
@@ -202,8 +198,8 @@ class DataSet():
             mouse_group = self.dataset[mouse]
             mouse_objects.append(Mouse(mouse, mouse_group, self.data_repo))
         return mouse_objects
-        
-    
+
+
 def as_array(nested_vectors):
     '''
     Converts a 1D numpy array with nested 1D numpy arrays of variable length
@@ -228,9 +224,10 @@ def as_array(nested_vectors):
 
     for vector in range(len(nested_vectors)):
         vector_length = len(nested_vectors[vector])
-        output_array[vector,0:vector_length] = nested_vectors[vector]
+        output_array[vector, 0:vector_length] = nested_vectors[vector]
 
     return output_array
+
 
 def as_vector(nested_vectors):
     '''
@@ -245,7 +242,7 @@ def as_vector(nested_vectors):
     Returns:
     --------
     output_array: 1D numpy array
-        1D numpy array containing all vectors concatenated together. 
+        1D numpy array containing all vectors concatenated together.
     '''
     output_vector = np.array([])
 
@@ -253,10 +250,11 @@ def as_vector(nested_vectors):
         output_vector = np.append(output_vector, vector)
     return output_vector
 
+
 def dataset_load(data_repo, dataset_repo):
     '''
     Gets the user to choose one of many dataset files in dataset_repo.
-    Once these datasets are chosen, a corresponding DataSet object is 
+    Once these datasets are chosen, a corresponding DataSet object is
     instantiated and appended to a list.
 
     Returns:
@@ -270,19 +268,19 @@ def dataset_load(data_repo, dataset_repo):
     datasets = []
     dataset_names = []
     file_search = True
-    while file_search == True:   
+    while file_search is True:
         fname = input('Enter dataset name (ls:list): ')
-        
-        if fname == 'ls':  
+
+        if fname == 'ls':
             print(sorted(os.listdir(dataset_repo)))
-            
+
         elif f'{fname}.hdf5' in os.listdir(dataset_repo):
             datasets.append(DataSet(fname, data_repo, dataset_repo))
             dataset_names.append(input('Enter label for this dataset: '))
-            
+
             if input('Add another dataset?(y/n): ') == 'n':
                 file_search = False
-                
+
         else:
             print('Dataset file not found.')
 
